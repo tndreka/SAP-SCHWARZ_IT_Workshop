@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supplier Portal - Upload Shipment</title>
+    <style>
+        body { font-family: Arial; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        h1 { color: #667eea; text-align: center; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+        button { padding: 14px 28px; margin: 10px 5px; font-size: 16px; 
+                background: #667eea; color: white; border: none; 
+                border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #5568d3; transform: translateY(-2px); transition: all 0.3s; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { background: #f8f9fa; padding: 20px; margin: 20px 0; 
+                 border-radius: 8px; border-left: 4px solid #667eea; }
+        pre { background: #2d3748; color: #68d391; padding: 15px; overflow-x: auto; 
+             border-radius: 6px; font-size: 12px; }
+        input[type="text"], input[type="email"], input[type="date"] { 
+            padding: 10px; margin: 5px 0; width: 100%; font-size: 14px; 
+            border: 2px solid #e2e8f0; border-radius: 6px; box-sizing: border-box;
+        }
+        input[type="file"] {
+            padding: 10px; margin: 10px 0; font-size: 14px; width: 100%;
+            border: 2px dashed #667eea; border-radius: 6px; background: #f7fafc;
+        }
+        textarea {
+            width: 100%; padding: 10px; font-family: monospace; font-size: 12px;
+            border: 2px solid #e2e8f0; border-radius: 6px; box-sizing: border-box;
+        }
+        .success { color: #38a169; font-weight: bold; }
+        .error { color: #e53e3e; font-weight: bold; }
+        label { display: block; margin-top: 15px; font-weight: bold; color: #2d3748; }
+        .token-display { background: #edf2f7; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .token-value { font-family: monospace; background: #2d3748; color: #68d391; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 11px; }
+        .copy-btn { background: #48bb78; margin-top: 10px; }
+        .copy-btn:hover { background: #38a169; }
+        .step { background: #667eea; color: white; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Supplier Portal</h1>
+        <p class="subtitle">Upload shipment documents and generate secure download tokens for your customers</p>
+        
+        <div class="result">
+            <h2><span class="step">1</span>Generate Upload Token</h2>
+            <p>First, generate a secure token to authenticate your upload</p>
+            <button onclick="generateToken()" id="genBtn">🔑 Generate Upload Token</button>
+            <div id="tokenResult"></div>
+        </div>
+        
+        <div class="result">
+            <h2><span class="step">2</span>Upload Shipment Document</h2>
+            <p>Fill in shipment details and upload your document</p>
+            <form onsubmit="uploadShipment(event)" id="uploadForm">
+                <label>Upload Token (auto-filled):</label>
+                <input type="text" id="token" placeholder="Generate token first" readonly required>
+                
+                <label>Your Company Name:</label>
+                <input type="text" id="supplierName" placeholder="e.g., ACME Corporation" value="ACME Corporation" required>
+                
+                <label>Your Email:</label>
+                <input type="email" id="supplierEmail" placeholder="your-email@company.com" value="supplier@acme.com" required>
+                
+                <label>Your Phone:</label>
+                <input type="text" id="supplierPhone" placeholder="+1-234-567-8900" value="+49-123-456789" required>
+                
+                <label>Shipment Number:</label>
+                <input type="text" id="shipmentNumber" placeholder="SHIP-2026-XXX" value="SHIP-2026-001" required>
+                
+                <label>Shipment Date:</label>
+                <input type="date" id="shipmentDate" value="2026-02-02" required>
+                
+                <label>Expected Delivery Date:</label>
+                <input type="date" id="expectedDeliveryDate" value="2026-02-10" required>
+                
+                <label>📄 Upload Document (PDF, Excel, CSV, etc.):</label>
+                <input type="file" id="documentFile" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx" required>
+                <small style="color: #718096;">Max size: 50MB</small>
+                
+                <label>Items (JSON format):</label>
+                <textarea id="items" rows="8">[
+  {"itemNumber": "ITEM-001", "description": "Industrial Widget Type A", "quantity": 500, "unit": "pieces", "value": 2500.00, "currency": "EUR"},
+  {"itemNumber": "ITEM-002", "description": "Premium Gadget Model X", "quantity": 250, "unit": "pieces", "value": 5000.00, "currency": "EUR"},
+  {"itemNumber": "ITEM-003", "description": "Standard Component B2", "quantity": 1000, "unit": "kg", "value": 1500.00, "currency": "EUR"}
+]</textarea>
+                
+                <br>
+                <button type="submit" id="uploadBtn" disabled>📤 Upload Shipment</button>
+            </form>
+            <div id="uploadResult"></div>
+        </div>
+        
+        <div class="result" id="tokenShareSection" style="display:none;">
+            <h2><span class="step">3</span>Share Download Token with Customer</h2>
+            <p>Send this token to your customer so they can download the shipment</p>
+            <div class="token-display">
+                <strong>Download Token:</strong>
+                <div class="token-value" id="downloadTokenDisplay"></div>
+                <button class="copy-btn" onclick="copyToken()">📋 Copy Token</button>
+                <button class="copy-btn" onclick="copyUrl()">🔗 Copy Download URL</button>
+            </div>
+            <p><strong>Customer Download Portal:</strong></p>
+            <pre id="customerUrl"></pre>
+        </div>
+    </div>
+    
+    <script>
+        const baseUrl = window.location.origin + '/odata/v4/shipment';
+        let currentDownloadToken = '';
+        
+        async function generateToken() {
+            const resultDiv = document.getElementById('tokenResult');
+            const genBtn = document.getElementById('genBtn');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            resultDiv.innerHTML = '<p>⏳ Generating secure token...</p>';
+            genBtn.disabled = true;
+            
+            try {
+                const response = await fetch(baseUrl + '/generateUploadToken', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Token Generated Successfully!</p>
+                    <p><strong>Valid for:</strong> 5 minutes</p>
+                    <p><strong>Expires at:</strong> ${new Date(data.expiresAt).toLocaleString()}</p>
+                `;
+                document.getElementById('token').value = data.token;
+                uploadBtn.disabled = false;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+                genBtn.disabled = false;
+            }
+        }
+        
+        async function uploadShipment(event) {
+            event.preventDefault();
+            const resultDiv = document.getElementById('uploadResult');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            resultDiv.innerHTML = '<p>⏳ Uploading shipment with document...</p>';
+            uploadBtn.disabled = true;
+            
+            try {
+                const fileInput = document.getElementById('documentFile');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    throw new Error('Please select a file');
+                }
+                
+                const fileContent = await readFileAsBase64(file);
+                
+                const payload = {
+                    token: document.getElementById('token').value,
+                    supplierName: document.getElementById('supplierName').value,
+                    supplierEmail: document.getElementById('supplierEmail').value,
+                    supplierPhone: document.getElementById('supplierPhone').value,
+                    shipmentNumber: document.getElementById('shipmentNumber').value,
+                    shipmentDate: document.getElementById('shipmentDate').value,
+                    expectedDeliveryDate: document.getElementById('expectedDeliveryDate').value,
+                    documentName: file.name,
+                    documentContent: fileContent,
+                    items: document.getElementById('items').value
+                };
+                
+                const response = await fetch(baseUrl + '/uploadShipment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`Upload failed: ${text}`);
+                }
+                
+                const data = await response.json();
+                currentDownloadToken = data.downloadToken;
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Shipment Uploaded Successfully!</p>
+                    <p><strong>File:</strong> ${file.name} (${(file.size / 1024).toFixed(2)} KB)</p>
+                    <p><strong>Shipment ID:</strong> ${data.shipmentID}</p>
+                    <p><strong>Status:</strong> Ready for customer download</p>
+                `;
+                
+                // Show token sharing section
+                document.getElementById('tokenShareSection').style.display = 'block';
+                document.getElementById('downloadTokenDisplay').textContent = data.downloadToken;
+                document.getElementById('customerUrl').textContent = window.location.origin + '/company.html';
+                
+                // Scroll to token section
+                document.getElementById('tokenShareSection').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+                uploadBtn.disabled = false;
+            }
+        }
+        
+        function copyToken() {
+            navigator.clipboard.writeText(currentDownloadToken);
+            alert('✅ Token copied to clipboard!');
+        }
+        
+        function copyUrl() {
+            const url = window.location.origin + '/company.html';
+            navigator.clipboard.writeText(url + '\n\nToken: ' + currentDownloadToken);
+            alert('✅ Download URL and token copied to clipboard!');
+        }
+        
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>

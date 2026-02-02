@@ -48,11 +48,6 @@
       "portal": true,
       "application-logging": true
     },
-    "profile": "with-mtx-sidecar",
-    "protocols": {
-      "rest": {
-        "limit": "100mb"
-      }
-    }
+    "profile": "with-mtx-sidecar"
   }
 }
