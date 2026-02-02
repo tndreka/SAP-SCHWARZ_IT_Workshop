@@ -1,0 +1,120 @@
+{
+  "_version": "3.0.0",
+  "identification": {
+    "title": "send_and_request",
+    "id": "send_and_request-flp",
+    "entityType": "bundle"
+  },
+  "payload": {
+    "catalogs": [
+      {
+        "_version": "3.0.0",
+        "identification": {
+          "id": "send_and_request-catalog",
+          "title": "{{title}}",
+          "entityType": "catalog",
+          "i18n": "i18n/catalog.properties"
+        },
+        "payload": {
+          "viz": [
+            {
+              "appId": "send_and_request.admin-authors",
+              "vizId": "Authors-manage"
+            },
+            {
+              "appId": "send_and_request.admin-books",
+              "vizId": "Books-manage"
+            },
+            {
+              "appId": "send_and_request.browse",
+              "vizId": "Books-display"
+            },
+            {
+              "appId": "send_and_request.genres",
+              "vizId": "Genres-display"
+            }
+          ]
+        }
+      }
+    ],
+    "groups": [
+      {
+        "_version": "3.0.0",
+        "identification": {
+          "id": "send_and_request-group",
+          "title": "{{title}}",
+          "entityType": "group",
+          "i18n": "i18n/group.properties"
+        },
+        "payload": {
+          "viz": [
+            {
+              "id": "send_and_requestadmin-authors-001",
+              "appId": "send_and_request.admin-authors",
+              "vizId": "Authors-manage"
+            },
+            {
+              "id": "send_and_requestadmin-books-001",
+              "appId": "send_and_request.admin-books",
+              "vizId": "Books-manage"
+            },
+            {
+              "id": "send_and_requestbrowse-001",
+              "appId": "send_and_request.browse",
+              "vizId": "Books-display"
+            },
+            {
+              "id": "send_and_requestgenres-001",
+              "appId": "send_and_request.genres",
+              "vizId": "Genres-display"
+            }
+          ]
+        }
+      }
+    ],
+    "sites": [
+      {
+        "_version": "3.0.0",
+        "identification": {
+          "id": "send_and_request-site",
+          "entityType": "site",
+          "title": "send_and_request",
+          "description": "A simple CAP project."
+        },
+        "payload": {
+          "config": {
+            "ushellConfig": {
+              "renderers": {
+                "fiori2": {
+                  "componentData": {
+                    "config": {
+                      "applications": {
+                        "Shell-home": {}
+                      },
+                      "enableSearch": true,
+                      "enablePersonalization": true,
+                      "enableSetTheme": true,
+                      "enableSetLanguage": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "groupsOrder": ["send_and_request-group"],
+          "sap.cloud.portal": {
+            "config": {
+              "theme.id": "sap_horizon",
+              "theme.active": [
+                "sap_horizon",
+                "sap_horizon_dark",
+                "sap_horizon_hcw",
+                "sap_horizon_hcb"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

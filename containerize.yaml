@@ -1,0 +1,44 @@
+_schema-version: '1.0'
+repository: <registry-server>
+tag: latest
+modules:
+  - name: send_and_request-srv
+    build-parameters:
+      buildpack:
+        type: nodejs
+        builder: builder-jammy-base
+        path: gen/srv
+        env:
+          BP_NODE_RUN_SCRIPTS: ""
+  - name: send_and_request-sidecar
+    build-parameters:
+      buildpack:
+        type: nodejs
+        builder: builder-jammy-base
+        path: gen/mtx/sidecar
+        env:
+          BP_NODE_RUN_SCRIPTS: ""
+  - name: send_and_request-approuter
+    build-parameters:
+      buildpack:
+        type: nodejs
+        builder: builder-jammy-base
+        path: app/router
+        env:
+          BP_NODE_RUN_SCRIPTS: ""
+  - name: send_and_request-html5-deployer
+    build-parameters:
+      buildpack:
+        type: nodejs
+        builder: builder-jammy-base
+        path: app/html5-deployer
+        env:
+          BP_NODE_RUN_SCRIPTS: ""
+  - name: send_and_request-portal-deployer
+    build-parameters:
+      buildpack:
+        type: nodejs
+        builder: builder-jammy-base
+        path: app/portal
+        env:
+          BP_NODE_RUN_SCRIPTS: ""
