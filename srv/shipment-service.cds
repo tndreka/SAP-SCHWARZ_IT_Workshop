@@ -4,7 +4,6 @@ service ShipmentService {
     
     // Read-only access to shipments (for internal use)
     entity ShipmentDocuments as projection on db.ShipmentDocuments;
-    entity ShipmentItems as projection on db.ShipmentItems;
     
     // ===== SUPPLIER ACTIONS (Anonymous) =====
     
@@ -16,66 +15,40 @@ service ShipmentService {
         message: String;
     };
     
-    // Step 2: Supplier uploads shipment document + details
-    action uploadShipment(
+    // Step 2: Supplier uploads document (simplified)
+    action uploadDocument(
         token: String,
-        
-        // Supplier info
-        supplierName: String,
-        supplierEmail: String,
-        supplierPhone: String,
-        
-        // Shipment info
-        shipmentNumber: String,
-        shipmentDate: Date,
-        expectedDeliveryDate: Date,
-        
-        // Document
+        supplierID: String,
+        recipientEmail: String,
         documentName: String,
-        documentContent: LargeBinary,
-        
-        // Items array (JSON string for simplicity)
-        items: String // JSON: [{itemNumber, description, quantity, unit, value}]
-        
+        documentContent: LargeBinary
     ) returns {
-        shipmentID: UUID;
-        downloadToken: String;
-        downloadUrl: String;
+        success: Boolean;
         message: String;
+        downloadToken: String;
+        emailSent: Boolean;
     };
     
     // ===== COMPANY ACTIONS (Anonymous) =====
     
-    // Step 3: Company downloads shipment document
-    action downloadShipment(token: String) returns {
+    // Step 1: Company retrieves document info using token
+    action retrieveDocument(token: String) returns {
         shipmentID: UUID;
-        supplierName: String;
-        shipmentNumber: String;
-        shipmentDate: Date;
+        supplierID: String;
         documentName: String;
-        documentContent: LargeBinary;
-        items: array of {
-            itemNumber: String;
-            itemDescription: String;
-            quantity: Integer;
-            unit: String;
-            value: Decimal;
-            currency: String;
-        };
+        documentSize: Integer;
+        mimeType: String;
+        status: String;
+        createdAt: DateTime;
     };
     
-    // Step 4: Company confirms receipt
-    action confirmShipment(token: String) returns {
+    // Step 2: Company downloads the actual document
+    action downloadDocument(token: String) returns LargeBinary;
+    
+    // Step 3: Company confirms receipt
+    action confirmReceipt(token: String) returns {
         success: Boolean;
         message: String;
-    };
-    
-    // ===== UTILITY ACTIONS =====
-    
-    // Check token validity
-    function checkToken(token: String) returns {
-        valid: Boolean;
-        type: String; // UPLOAD or DOWNLOAD
-        expiresAt: DateTime;
+        receivedAt: DateTime;
     };
 }

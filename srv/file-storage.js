@@ -1,39 +1,37 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const STORAGE_ROOT = path.join(__dirname, '..', 'app', 'storage');
+// Storage directory (adjust as needed)
+const STORAGE_DIR = path.join(__dirname, '../uploads');
 
-async function ensureStorageDirectory() {
+// Ensure storage directory exists
+async function ensureStorageDir() {
     try {
-        await fs.mkdir(STORAGE_ROOT, { recursive: true });
-    } catch (error) {
-        console.error('Error creating storage directory:', error);
+        await fs.access(STORAGE_DIR);
+    } catch {
+        await fs.mkdir(STORAGE_DIR, { recursive: true });
     }
 }
 
-async function storeDocument(shipmentID, filename, base64Content) {
-    await ensureStorageDirectory();
+// Store document
+async function storeDocument(shipmentID, filename, buffer) {
+    await ensureStorageDir();
     
-    const shipmentDir = path.join(STORAGE_ROOT, shipmentID);
-    await fs.mkdir(shipmentDir, { recursive: true });
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = path.join(STORAGE_DIR, `${shipmentID}_${sanitizedFilename}`);
     
-    const filePath = path.join(shipmentDir, filename);
-    const buffer = Buffer.from(base64Content, 'base64');
+    await fs.writeFile(storagePath, buffer);
     
-    await fs.writeFile(filePath, buffer);
-    
-    return filePath;
+    return storagePath;
 }
 
-async function retrieveDocument(shipmentID, filename) {
-    const filePath = path.join(STORAGE_ROOT, shipmentID, filename);
-    
+// Retrieve document
+async function retrieveDocument(storagePath) {
     try {
-        const buffer = await fs.readFile(filePath);
-        return buffer.toString('base64');
+        const buffer = await fs.readFile(storagePath);
+        return buffer;
     } catch (error) {
-        console.error('Error reading file:', error);
-        throw new Error('Document not found');
+        throw new Error(`Failed to retrieve document: ${error.message}`);
     }
 }
 

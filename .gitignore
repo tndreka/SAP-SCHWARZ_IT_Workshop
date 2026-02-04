@@ -1,6 +1,5 @@
 # CAP send_and_request
 _out
-*.db
 *.sqlite
 connection.properties
 default-*.json
@@ -32,3 +31,9 @@ mta_archives/
 
 # @cap-js/cds-typer
 @cds-models
+
+# Add to existing .gitignore
+uploads/
+*.db
+
+.env

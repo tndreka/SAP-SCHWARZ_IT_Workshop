@@ -1,7 +1,10 @@
 node_modules
 .git
 .gitignore
-*.md
-.env
-app/storage/*
-!app/storage/.gitkeep
+*.log
+.DS_Store
+*.db
+uploads/*
+!uploads/.gitkeep
+.vscode
+test-email.js

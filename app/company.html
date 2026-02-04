@@ -1,83 +1,78 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Company Portal - Download Shipment</title>
+    <title>Company Portal - Download Document</title>
     <style>
-        body { font-family: Arial; margin: 40px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); min-height: 100vh; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
-        h1 { color: #f5576c; text-align: center; margin-bottom: 10px; }
+        body { font-family: Arial; margin: 40px; background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); min-height: 100vh; }
+        .container { max-width: 700px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        h1 { color: #764ba2; text-align: center; margin-bottom: 10px; }
         .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
         button { padding: 14px 28px; margin: 10px 5px; font-size: 16px; 
-                background: #f5576c; color: white; border: none; 
+                background: #764ba2; color: white; border: none; 
                 border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #e04656; transform: translateY(-2px); transition: all 0.3s; }
+        button:hover { background: #5a3678; transform: translateY(-2px); transition: all 0.3s; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         .result { background: #f8f9fa; padding: 20px; margin: 20px 0; 
-                 border-radius: 8px; border-left: 4px solid #f5576c; }
-        pre { background: #2d3748; color: #68d391; padding: 15px; overflow-x: auto; 
-             border-radius: 6px; font-size: 12px; }
+                 border-radius: 8px; border-left: 4px solid #764ba2; }
         input[type="text"] { 
-            padding: 12px; margin: 10px 0; width: 100%; font-size: 14px; 
+            padding: 12px; margin: 10px 0; width: 100%; font-size: 16px; 
             border: 2px solid #e2e8f0; border-radius: 6px; box-sizing: border-box;
             font-family: monospace;
         }
         .success { color: #38a169; font-weight: bold; }
         .error { color: #e53e3e; font-weight: bold; }
         label { display: block; margin-top: 15px; font-weight: bold; color: #2d3748; }
-        .download-link { display: inline-block; background: #48bb78; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px; font-weight: bold; }
-        .download-link:hover { background: #38a169; }
-        .shipment-info { background: white; border: 2px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 15px 0; }
-        .shipment-info h3 { margin-top: 0; color: #2d3748; }
-        .step { background: #f5576c; color: white; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; }
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .item-table th, .item-table td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        .item-table th { background: #f7fafc; font-weight: bold; }
-        .back-link { display: inline-block; margin-bottom: 20px; color: #2d3748; text-decoration: none; font-weight: bold; }
-        .back-link:hover { color: #f5576c; }
+        .document-box { background: #edf2f7; padding: 20px; border-radius: 6px; margin: 15px 0; }
+        .download-btn { background: #48bb78; }
+        .download-btn:hover { background: #38a169; }
+        .receipt-btn { background: #667eea; }
+        .receipt-btn:hover { background: #5568d3; }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="/" class="back-link">← Back to Home</a>
         <h1>🏢 Company Portal</h1>
-        <p class="subtitle">Download shipment documents from your suppliers</p>
+        <p class="subtitle">Download documents using the token from your email</p>
         
         <div class="result">
-            <h2><span class="step">1</span>Enter Download Token</h2>
-            <p>Paste the token you received from your supplier</p>
-            <label>Download Token:</label>
-            <input type="text" id="downloadToken" placeholder="Paste your download token here...">
-            <button onclick="downloadShipment()">📥 Download Shipment</button>
-            <div id="downloadResult"></div>
+            <h2>Enter Download Token</h2>
+            <p>Paste the token you received via email from the supplier</p>
+            
+            <label>Download Token: *</label>
+            <input type="text" id="downloadToken" placeholder="Paste your token here..." required>
+            
+            <button onclick="retrieveDocument()">🔍 Retrieve Document</button>
+            <div id="retrieveResult"></div>
         </div>
         
-        <div class="result">
-            <h2><span class="step">2</span>Confirm Receipt</h2>
-            <p>After reviewing the shipment, confirm that you received it</p>
-            <button onclick="confirmShipment()" id="confirmBtn" disabled>✅ Confirm Shipment Receipt</button>
-            <div id="confirmResult"></div>
+        <div class="result" id="documentSection" style="display:none;">
+            <h2>📄 Document Details</h2>
+            <div class="document-box" id="documentInfo"></div>
+            
+            <button class="download-btn" onclick="downloadDocument()">⬇️ Download Document</button>
+            <button class="receipt-btn" onclick="confirmReceipt()">✅ Confirm Receipt</button>
+            
+            <div id="actionResult"></div>
         </div>
     </div>
     
     <script>
         const baseUrl = window.location.origin + '/odata/v4/shipment';
-        let currentToken = '';
+        let currentShipmentData = null;
         
-        async function downloadShipment() {
-            const resultDiv = document.getElementById('downloadResult');
+        async function retrieveDocument() {
+            const resultDiv = document.getElementById('retrieveResult');
             const token = document.getElementById('downloadToken').value.trim();
-            const confirmBtn = document.getElementById('confirmBtn');
             
             if (!token) {
-                resultDiv.innerHTML = '<p class="error">❌ Please enter a download token</p>';
+                resultDiv.innerHTML = '<p class="error">❌ Please enter a token</p>';
                 return;
             }
             
-            currentToken = token;
-            resultDiv.innerHTML = '<p>⏳ Downloading shipment...</p>';
+            resultDiv.innerHTML = '<p>⏳ Retrieving document...</p>';
             
             try {
-                const response = await fetch(baseUrl + '/downloadShipment', {
+                const response = await fetch(baseUrl + '/retrieveDocument', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token: token })
@@ -85,104 +80,91 @@
                 
                 if (!response.ok) {
                     const text = await response.text();
-                    throw new Error(`Download failed: ${text}`);
+                    throw new Error(text || 'Failed to retrieve document');
                 }
                 
                 const data = await response.json();
+                currentShipmentData = data;
                 
-                // Create download link for document
-                const downloadLink = createDownloadLink(data.documentContent, data.documentName);
-                
-                // Build items table
-                let itemsTable = '<table class="item-table"><thead><tr><th>Item #</th><th>Description</th><th>Quantity</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
-                data.items.forEach(item => {
-                    itemsTable += `<tr>
-                        <td>${item.itemNumber}</td>
-                        <td>${item.itemDescription}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.unit}</td>
-                        <td>${item.value} ${item.currency}</td>
-                    </tr>`;
-                });
-                itemsTable += '</tbody></table>';
-                
-                resultDiv.innerHTML = `
-                    <p class="success">✅ Shipment Downloaded Successfully!</p>
-                    
-                    <div class="shipment-info">
-                        <h3>📋 Shipment Information</h3>
-                        <p><strong>Shipment Number:</strong> ${data.shipmentNumber}</p>
-                        <p><strong>Supplier:</strong> ${data.supplierName}</p>
-                        <p><strong>Shipment Date:</strong> ${new Date(data.shipmentDate).toLocaleDateString()}</p>
-                    </div>
-                    
-                    <div class="shipment-info">
-                        <h3>📄 Document</h3>
-                        <p><strong>File:</strong> ${data.documentName}</p>
-                        ${downloadLink}
-                    </div>
-                    
-                    <div class="shipment-info">
-                        <h3>📦 Items</h3>
-                        ${itemsTable}
-                    </div>
-                    
-                    <p style="margin-top: 20px;"><strong>✅ Please review the document and items, then confirm receipt below.</strong></p>
+                // Display document info
+                document.getElementById('documentInfo').innerHTML = `
+                    <p><strong>Document Name:</strong> ${data.documentName}</p>
+                    <p><strong>File Size:</strong> ${formatFileSize(data.documentSize)}</p>
+                    <p><strong>Supplier ID:</strong> ${data.supplierID}</p>
+                    <p><strong>Uploaded:</strong> ${new Date(data.createdAt).toLocaleString()}</p>
+                    <p><strong>Status:</strong> ${data.status}</p>
                 `;
                 
-                confirmBtn.disabled = false;
+                document.getElementById('documentSection').style.display = 'block';
+                resultDiv.innerHTML = '<p class="success">✅ Document found!</p>';
+                
             } catch (error) {
                 resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
             }
         }
         
-        async function confirmShipment() {
-            const resultDiv = document.getElementById('confirmResult');
-            const confirmBtn = document.getElementById('confirmBtn');
+        async function downloadDocument() {
+            const resultDiv = document.getElementById('actionResult');
+            const token = document.getElementById('downloadToken').value.trim();
             
-            if (!currentToken) {
-                resultDiv.innerHTML = '<p class="error">❌ Please download a shipment first</p>';
-                return;
-            }
-            
-            resultDiv.innerHTML = '<p>⏳ Confirming shipment...</p>';
-            confirmBtn.disabled = true;
+            resultDiv.innerHTML = '<p>⏳ Downloading document...</p>';
             
             try {
-                const response = await fetch(baseUrl + '/confirmShipment', {
+                const response = await fetch(baseUrl + '/downloadDocument', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: currentToken })
+                    body: JSON.stringify({ token: token })
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`Confirmation failed`);
+                    throw new Error('Download failed');
                 }
                 
-                const data = await response.json();
-                resultDiv.innerHTML = `
-                    <p class="success">✅ ${data.message}</p>
-                    <p>The supplier has been notified of your confirmation.</p>
-                `;
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = currentShipmentData.documentName;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                resultDiv.innerHTML = '<p class="success">✅ Document downloaded successfully!</p>';
+                
             } catch (error) {
                 resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-                confirmBtn.disabled = false;
             }
         }
         
-        function createDownloadLink(base64Content, filename) {
-            const blob = base64ToBlob(base64Content);
-            const url = URL.createObjectURL(blob);
-            return `<a href="${url}" download="${filename}" class="download-link">📥 Download ${filename}</a>`;
+        async function confirmReceipt() {
+            const resultDiv = document.getElementById('actionResult');
+            const token = document.getElementById('downloadToken').value.trim();
+            
+            resultDiv.innerHTML = '<p>⏳ Confirming receipt...</p>';
+            
+            try {
+                const response = await fetch(baseUrl + '/confirmReceipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to confirm receipt');
+                }
+                
+                resultDiv.innerHTML = '<p class="success">✅ Receipt confirmed! Supplier has been notified.</p>';
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
         }
         
-        function base64ToBlob(base64) {
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            return new Blob([bytes]);
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
         }
     </script>
 </body>

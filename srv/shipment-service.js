@@ -1,15 +1,17 @@
+require('dotenv').config(); // Add this line
 const cds = require('@sap/cds');
 const crypto = require('crypto');
 const { storeDocument, retrieveDocument } = require('./file-storage');
+const { sendDownloadTokenEmail, sendReceiptConfirmationEmail } = require('./email-service'); // Add this line
 
 module.exports = cds.service.impl(async function() {
     
-    const { ShipmentDocuments, ShipmentItems } = this.entities;
+    const { ShipmentDocuments } = this.entities;
     
     // ===== SUPPLIER: Generate Upload Token =====
     this.on('generateUploadToken', async (req) => {
         const token = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 5 * 60000); // 5 minutes for testing
+        const expiresAt = new Date(Date.now() + 5 * 60000); // 5 minutes
         
         const db = await cds.connect.to('db');
         
@@ -29,15 +31,13 @@ module.exports = cds.service.impl(async function() {
         };
     });
     
-    // ===== SUPPLIER: Upload Shipment =====
-    this.on('uploadShipment', async (req) => {
-        const { token, supplierName, supplierEmail, supplierPhone, 
-                shipmentNumber, shipmentDate, expectedDeliveryDate,
-                documentName, documentContent, items } = req.data;
+    // ===== SUPPLIER: Upload Document (Simplified) =====
+    this.on('uploadDocument', async (req) => {
+        const { token, supplierID, recipientEmail, documentName, documentContent } = req.data;
         
         const db = await cds.connect.to('db');
         
-        // 1. Verify token
+        // 1. Verify upload token
         const tokenRecord = await db.run(
             SELECT.one.from('com.sap.workshop.shipment.UploadTokens')
                 .where({ token: token, used: false })
@@ -48,62 +48,34 @@ module.exports = cds.service.impl(async function() {
             return req.reject(403, 'Invalid or expired upload token');
         }
         
-        // 2. Parse items
-        let itemsArray = [];
-        try {
-            itemsArray = JSON.parse(items);
-        } catch (e) {
-            return req.reject(400, 'Invalid items format');
-        }
-        
-        // 3. Create shipment document
+        // 2. Create shipment document
         const shipmentID = cds.utils.uuid();
         
-        // 4. Store the actual file
-        const storagePath = await storeDocument(shipmentID, documentName, documentContent);
+        // 3. Store the actual file
+        const buffer = Buffer.from(documentContent, 'base64');
+        const storagePath = await storeDocument(shipmentID, documentName, buffer);
         
-        await INSERT.into(ShipmentDocuments).entries({
+        // 4. Get file metadata
+        const mimeType = getMimeType(documentName);
+        const documentSize = buffer.length;
+        
+        // 5. Save to database (simplified fields only)
+        await db.run(INSERT.into('com.sap.workshop.shipment.ShipmentDocuments').entries({
             ID: shipmentID,
-            supplierName: supplierName,
-            supplierEmail: supplierEmail,
-            supplierPhone: supplierPhone,
-            shipmentNumber: shipmentNumber,
-            shipmentDate: shipmentDate,
-            expectedDeliveryDate: expectedDeliveryDate,
-            totalItems: itemsArray.length,
-            totalQuantity: itemsArray.reduce((sum, item) => sum + (item.quantity || 0), 0),
+            supplierID: supplierID,
+            recipientEmail: recipientEmail,
             documentName: documentName,
-            documentSize: Buffer.from(documentContent, 'base64').length,
-            mimeType: getMimeType(documentName),
+            documentSize: documentSize,
+            mimeType: mimeType,
             storagePath: storagePath,
-            uploadedAt: new Date(),
-            status: 'PENDING'
-        });
+            status: 'PENDING',
+            createdAt: new Date(),
+            modifiedAt: new Date()
+        }));
         
-        // 5. Create shipment items
-        for (const item of itemsArray) {
-            await INSERT.into(ShipmentItems).entries({
-                ID: cds.utils.uuid(),
-                shipment_ID: shipmentID,
-                itemNumber: item.itemNumber,
-                itemDescription: item.description,
-                quantity: item.quantity,
-                unit: item.unit,
-                value: item.value,
-                currency_code: item.currency || 'EUR'
-            });
-        }
-        
-        // 6. Mark upload token as used
-        await db.run(
-            UPDATE('com.sap.workshop.shipment.UploadTokens')
-                .set({ used: true, shipmentID: shipmentID })
-                .where({ token: token })
-        );
-        
-        // 7. Generate download token for company
+        // 6. Generate download token for company
         const downloadToken = crypto.randomBytes(32).toString('hex');
-        const downloadExpiresAt = new Date(Date.now() + 30 * 24 * 3600000); // 30 days
+        const downloadExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60000); // 7 days
         
         await db.run(INSERT.into('com.sap.workshop.shipment.DownloadTokens').entries({
             token: downloadToken,
@@ -112,19 +84,48 @@ module.exports = cds.service.impl(async function() {
             expiresAt: downloadExpiresAt,
             downloadCount: 0,
             maxDownloads: 5,
-            ipAddress: req.http?.req?.ip || 'unknown'
+            ipAddress: req.http?.req?.ip || 'unknown',
+            emailSent: false,
+            sentTo: recipientEmail
         }));
         
+        // 7. Mark upload token as used
+        await db.run(
+            UPDATE('com.sap.workshop.shipment.UploadTokens')
+                .set({ used: true, shipmentID: shipmentID })
+                .where({ token: token })
+        );
+        
+        // 8. TODO: Send email to recipientEmail with downloadToken
+        // For now, we'll just return it - you'll implement email service later
+        //console.log(`📧 Email should be sent to: ${recipientEmail}`);
+        //console.log(`📧 Download Token: ${downloadToken}`);
+        
+        // TODO: Implement email sending here
+        // const emailSent = await sendEmailWithToken(recipientEmail, downloadToken);
+        //const emailSent = false; // Placeholder until email service is ready
+       // 8. Send email to recipientEmail with downloadToken
+        console.log(`📧 Sending email to: ${recipientEmail}`);
+        const emailSent = await sendDownloadTokenEmail(recipientEmail, downloadToken, supplierID);
+
+        if (emailSent) {
+            await db.run(
+                UPDATE('com.sap.workshop.shipment.DownloadTokens')
+                    .set({ emailSent: true })
+                    .where({ token: downloadToken })
+            );
+        }
+
         return {
-            shipmentID: shipmentID,
-            downloadToken: downloadToken,
-            downloadUrl: `/shipment/download/${downloadToken}`,
-            message: `Shipment ${shipmentNumber} uploaded successfully. Real file stored!`
+            success: true,
+            message: emailSent ? 'Document uploaded and email sent successfully!' : 'Document uploaded but email failed.',
+            downloadToken: downloadToken, // Remove this in production (only for testing)
+            emailSent: emailSent
         };
     });
     
-    // ===== COMPANY: Download Shipment =====
-    this.on('downloadShipment', async (req) => {
+    // ===== COMPANY: Retrieve Document Info =====
+    this.on('retrieveDocument', async (req) => {
         const { token } = req.data;
         
         const db = await cds.connect.to('db');
@@ -135,133 +136,159 @@ module.exports = cds.service.impl(async function() {
                 .where({ token: token })
                 .and('expiresAt >', new Date())
         );
-            
-        if (!tokenRecord || tokenRecord.downloadCount >= tokenRecord.maxDownloads) {
-            return req.reject(403, 'Invalid, expired, or maximum downloads reached');
+        
+        if (!tokenRecord) {
+            return req.reject(403, 'Invalid or expired download token');
         }
         
         // 2. Get shipment document
-        const shipment = await SELECT.one.from(ShipmentDocuments)
-            .where({ ID: tokenRecord.shipment_ID });
-            
+        const shipment = await db.run(
+            SELECT.one.from('com.sap.workshop.shipment.ShipmentDocuments')
+                .where({ ID: tokenRecord.shipment_ID })
+        );
+        
         if (!shipment) {
-            return req.reject(404, 'Shipment not found');
+            return req.reject(404, 'Document not found');
         }
         
-        // 3. Get shipment items
-        const items = await SELECT.from(ShipmentItems)
-            .where({ shipment_ID: shipment.ID });
+        // 3. Return document metadata (no file content yet)
+        return {
+            shipmentID: shipment.ID,
+            supplierID: shipment.supplierID,
+            documentName: shipment.documentName,
+            documentSize: shipment.documentSize,
+            mimeType: shipment.mimeType,
+            status: shipment.status,
+            createdAt: shipment.createdAt
+        };
+    });
+    
+    // ===== COMPANY: Download Actual Document =====
+    this.on('downloadDocument', async (req) => {
+        const { token } = req.data;
         
-        // 4. Retrieve the actual document file
-        const documentContent = await retrieveDocument(shipment.ID, shipment.documentName);
+        const db = await cds.connect.to('db');
         
-        // 5. Update download count and timestamp
+        // 1. Verify download token
+        const tokenRecord = await db.run(
+            SELECT.one.from('com.sap.workshop.shipment.DownloadTokens')
+                .where({ token: token })
+                .and('expiresAt >', new Date())
+        );
+        
+        if (!tokenRecord) {
+            return req.reject(403, 'Invalid or expired download token');
+        }
+        
+        // 2. Check download limit
+        if (tokenRecord.downloadCount >= tokenRecord.maxDownloads) {
+            return req.reject(403, 'Maximum download limit reached');
+        }
+        
+        // 3. Get shipment document
+        const shipment = await db.run(
+            SELECT.one.from('com.sap.workshop.shipment.ShipmentDocuments')
+                .where({ ID: tokenRecord.shipment_ID })
+        );
+        
+        if (!shipment) {
+            return req.reject(404, 'Document not found');
+        }
+        
+        // 4. Retrieve file from storage
+        const fileBuffer = await retrieveDocument(shipment.storagePath);
+        
+        // 5. Update download count and status
         await db.run(
             UPDATE('com.sap.workshop.shipment.DownloadTokens')
                 .set({ downloadCount: tokenRecord.downloadCount + 1 })
                 .where({ token: token })
         );
-            
-        await UPDATE(ShipmentDocuments)
-            .set({ 
-                downloadedAt: new Date(),
-                status: 'DOWNLOADED'
-            })
-            .where({ ID: shipment.ID });
         
-        return {
-            shipmentID: shipment.ID,
-            supplierName: shipment.supplierName,
-            shipmentNumber: shipment.shipmentNumber,
-            shipmentDate: shipment.shipmentDate,
-            documentName: shipment.documentName,
-            documentContent: documentContent,
-            items: items.map(item => ({
-                itemNumber: item.itemNumber,
-                itemDescription: item.itemDescription,
-                quantity: item.quantity,
-                unit: item.unit,
-                value: item.value,
-                currency: item.currency_code
-            }))
-        };
+        await db.run(
+            UPDATE('com.sap.workshop.shipment.ShipmentDocuments')
+                .set({ 
+                    status: 'DOWNLOADED',
+                    downloadedAt: new Date()
+                })
+                .where({ ID: shipment.ID })
+        );
+        
+        // 6. Return file as binary
+        req._.res.set('Content-Type', shipment.mimeType);
+        req._.res.set('Content-Disposition', `attachment; filename="${shipment.documentName}"`);
+        
+        return fileBuffer;
     });
     
-    // ===== COMPANY: Confirm Shipment =====
-    this.on('confirmShipment', async (req) => {
+    // ===== COMPANY: Confirm Receipt =====
+    this.on('confirmReceipt', async (req) => {
         const { token } = req.data;
         
         const db = await cds.connect.to('db');
         
+        // 1. Verify download token
         const tokenRecord = await db.run(
             SELECT.one.from('com.sap.workshop.shipment.DownloadTokens')
                 .where({ token: token })
+                .and('expiresAt >', new Date())
         );
-            
+        
         if (!tokenRecord) {
-            return req.reject(403, 'Invalid token');
+            return req.reject(403, 'Invalid or expired download token');
         }
         
-        await UPDATE(ShipmentDocuments)
-            .set({ status: 'CONFIRMED' })
-            .where({ ID: tokenRecord.shipment_ID });
+        // 2. Get shipment document
+        const shipment = await db.run(
+            SELECT.one.from('com.sap.workshop.shipment.ShipmentDocuments')
+                .where({ ID: tokenRecord.shipment_ID })
+        );
+        
+        if (!shipment) {
+            return req.reject(404, 'Document not found');
+        }
+        
+        // 3. Update status to RECEIVED
+        const receivedAt = new Date();
+        
+        await db.run(
+            UPDATE('com.sap.workshop.shipment.ShipmentDocuments')
+                .set({ 
+                    status: 'RECEIVED',
+                    receivedAt: receivedAt
+                })
+                .where({ ID: shipment.ID })
+        );
+        
+        // 4. Send confirmation email to supplier
+        console.log(`📧 Sending confirmation to: ${shipment.recipientEmail}`);
+        const confirmationSent = await sendReceiptConfirmationEmail(
+            shipment.supplierID,
+            shipment.recipientEmail,
+            shipment.documentName
+        );
         
         return {
             success: true,
-            message: 'Shipment confirmed successfully'
+            message: 'Receipt confirmed successfully',
+            receivedAt: receivedAt,
+            confirmationSent: confirmationSent
         };
     });
     
-    // ===== UTILITY: Check Token =====
-    this.on('checkToken', async (req) => {
-        const { token } = req.data;
-        
-        const db = await cds.connect.to('db');
-        
-        // Check if upload token
-        let tokenRecord = await db.run(
-            SELECT.one.from('com.sap.workshop.shipment.UploadTokens')
-                .where({ token: token })
-        );
-            
-        if (tokenRecord) {
-            return {
-                valid: !tokenRecord.used && new Date(tokenRecord.expiresAt) > new Date(),
-                type: 'UPLOAD',
-                expiresAt: tokenRecord.expiresAt
-            };
-        }
-        
-        // Check if download token
-        tokenRecord = await db.run(
-            SELECT.one.from('com.sap.workshop.shipment.DownloadTokens')
-                .where({ token: token })
-        );
-            
-        if (tokenRecord) {
-            return {
-                valid: new Date(tokenRecord.expiresAt) > new Date() && 
-                       tokenRecord.downloadCount < tokenRecord.maxDownloads,
-                type: 'DOWNLOAD',
-                expiresAt: tokenRecord.expiresAt
-            };
-        }
-        
-        return { valid: false, type: 'UNKNOWN', expiresAt: null };
-    });
-    
-    // Helper function
+    // Helper function to determine MIME type
     function getMimeType(filename) {
         const ext = filename.split('.').pop().toLowerCase();
-        const types = {
+        const mimeTypes = {
             'pdf': 'application/pdf',
             'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'xls': 'application/vnd.ms-excel',
             'csv': 'text/csv',
-            'txt': 'text/plain',
             'doc': 'application/msword',
-            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'txt': 'text/plain',
+            'zip': 'application/zip'
         };
-        return types[ext] || 'application/octet-stream';
+        return mimeTypes[ext] || 'application/octet-stream';
     }
 });
