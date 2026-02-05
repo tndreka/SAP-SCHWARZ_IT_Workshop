@@ -50,7 +50,10 @@
 			"destinations": true,
 			"html5-repo": true,
 			"portal": true,
-			"application-logging": true
+			"application-logging": true,
+			"ShipmentService": {
+				"impl": "srv/shipment-service-enhanced.js"
+			}
 		},
 		"profile": "with-mtx-sidecar",
 		"protocols": {
