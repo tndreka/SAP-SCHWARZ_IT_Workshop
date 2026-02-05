@@ -154,7 +154,8 @@ module.exports = {
     '@schwarzit.com',
     '@schwarz-gruppe.com',  // Sister company
     '@lidl.com',            // Sister company
-    '@kaufland.com'         // Sister company
+    '@kaufland.com',         // Sister company
+    '@gmail.com'
   ],
   
   // ============================================
@@ -167,10 +168,12 @@ module.exports = {
   // ============================================
   // DEMO MODE
   // ============================================
-  DEMO_MODE: process.env.DEMO_MODE === 'true' || true,
-  
+//   DEMO_MODE: process.env.DEMO_MODE === 'true' || true,
+
+  DEMO_MODE: false,
+
   // If demo mode, use console.log instead of real emails
-  DEMO_EMAIL_TO_CONSOLE: true,
+  DEMO_EMAIL_TO_CONSOLE: false,
   
   // ============================================
   // ERROR MESSAGES (Generic for security)

@@ -67,14 +67,19 @@ entity ShipmentDocuments : managed {
     
     // Security tracking
     linkClickCount: Integer default 0;
+    linkClickedAt: DateTime;
     workerIDAttempts: Integer default 0;
+    workerVerifiedAt: DateTime;
+    codeVerifiedAt: DateTime;
     downloadAttempts: Integer default 0;
     
     isLocked: Boolean default false;
+    lockedAt: DateTime;
     lockedReason: String(200);
     
     // Receipt confirmation
     receiptConfirmed: Boolean default false;
+    receiptConfirmedAt: DateTime;
     receiptNote: String(500);
     wrongFileReported: Boolean default false;
     
@@ -83,14 +88,17 @@ entity ShipmentDocuments : managed {
     revisionNumber: Integer default 0;
 }
 
-    // Transfer Request Tracking (for request number generation)
-    entity TransferRequests {
-        key ID              : UUID;
-        requestNumber       : String(50);
-        transferType        : String(2);  // EI, IE, II, EE
-        shipment            : Association to ShipmentDocuments;
-        createdAt           : DateTime;
-    }
+// ============================================
+// TRANSFER REQUEST TRACKING (for request number generation)
+// ============================================
+entity TransferRequests {
+    key ID: UUID;
+    requestNumber: String(50);
+    transferType: String(2);  // EI, IE, II, EE
+    shipment: Association to ShipmentDocuments;
+    createdAt: DateTime;
+}
+
 // ============================================
 // UPLOAD TOKENS (Keep your existing)
 // ============================================
@@ -108,6 +116,7 @@ entity UploadTokens {
 // ============================================
 entity DownloadTokens {
     key token: String(64);
+    encryptedPayload: String(500);
     shipment_ID: UUID;
     createdAt: DateTime;
     expiresAt: DateTime;
@@ -135,21 +144,27 @@ entity VerificationCodes {
     createdAt: DateTime;
     expiresAt: DateTime;
     isUsed: Boolean default false;
+    usedAt: DateTime;
     attemptCount: Integer default 0;
     maxAttempts: Integer default 2;
+    resendCount: Integer default 0;
+    maxResends: Integer default 2;
 }
 
 // ============================================
-// AUDIT LOG (NEW - for tracking)
+// AUDIT LOG (FIXED - added partnerID + metadata)
 // ============================================
 entity AuditLog {
     key ID: UUID;
-    requestNumber: String(20);
+    requestNumber: String(50);
     shipmentID: UUID;
     workerID: String(50);
+    partnerID: String(50);        // ← ADDED THIS (was missing!)
     action: String(100);
     timestamp: DateTime;
     ipAddress: String(50);
+    userAgent: String(500);       // ← ADDED THIS
     success: Boolean;
     errorMessage: String(500);
+    metadata: String(2000);       // ← ADDED THIS
 }
